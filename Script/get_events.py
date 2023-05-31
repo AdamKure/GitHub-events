@@ -6,15 +6,16 @@ from datetime import datetime, timedelta
 
 class GitHubEvents:
 
-    def __init__(self, desired_events):
-        self.desired_events = desired_events
-        self.url = "https://api.github.com/events"
-        self.url_appendix = "user_name/repo_name"
-        if not GLOBAL_GITHUB:
-            self.url += self.url_appendix
+    def __init__(self, desired_events, **kwargs):
         self.events = []
         self.count_events = []
-    
+        self.desired_events = desired_events
+        self.url = "https://api.github.com/events"
+        self.user_name = kwargs.get("user_name")
+        self.repo_name = kwargs.get("repo_name")
+        if self.user_name and self.repo_name:
+            self.url +=  f"{self.user_name}/{self.repo_name}"
+
     def update_events(self):
         update_date = self._fetch_events()
         self._add_events(update_date)
@@ -30,42 +31,48 @@ class GitHubEvents:
         return event_count
 
     def get_avg_time_pull(self):
-        pull_event_list = (event for event in self.events if event["event_type"]=="PullRequestEvent")
+        pull_event_list = [event for event in self.events if event["event_type"]=="PullRequestEvent"]
         if len(pull_event_list) < 2:
             raise ValueError("Less than 2 entries")
         
-        sorted_pull_list = sorted(pull_event_list, key="event_time")
+        sorted_pull_list = sorted(pull_event_list, key=lambda x: x["event_time"])  # time increases with increasing index
 
-        total_time_diff = sorted_pull_list[0] - sorted_pull_list[-1]
+        first_entry_time = datetime.strptime(sorted_pull_list[0]["event_time"], "%Y-%m-%dT%H:%M:%SZ")
+        last_event_time = datetime.strptime(sorted_pull_list[-1]["event_time"], "%Y-%m-%dT%H:%M:%SZ")
+        total_time_diff = last_event_time - first_entry_time
         number_of_diffs = len(sorted_pull_list) - 1
-        return total_time_diff / number_of_diffs
+        avg_time_diff = total_time_diff / number_of_diffs
+        return avg_time_diff
 
     def filter_by_offset(self, offset_minutes=10):
         desired_time = datetime.now() - timedelta(minutes=offset_minutes)
-        sorted_events = sorted(self.events, key="event_time")
+        sorted_events = sorted(self.events, key=lambda x: x["event_time"])
         offset_events = []
         for event in sorted_events:
-            if event["event_time"] >= desired_time:
+            if datetime.strptime(event["event_time"], "%Y-%m-%dT%H:%M:%SZ") >= desired_time:
                 offset_events.append(event)
             else:
                 break
 
         return offset_events
 
-    def _fetch_events(self):
+    def _fetch_events(self, number_of_events=100):
         payload = {
             "accept": "application/json",
-            "per_page": COUNT
+            "per_page": number_of_events
         }
 
         response = requests.get(self.url, params=payload, timeout=3)
-        print(response.status_code)  # handle 304 potřeba dodelat
-        #sem neco kdyz 304
-        data = response.json()
-        return data
+        if response.status_code == 200:
+            data = response.json()
+            return data
+        elif response.status_code == 304:
+            return
+        else:
+            raise requests.exceptions.HTTPError(f"Unexpected response: {response.status_code}")
         #sse client here maybe
 
-    def _add_events(self, added_data: list[dict]):
+    def _add_events(self, added_data: list):
         for event in added_data:
             event_type = event["type"]
             if event_type not in self.desired_events:
@@ -78,20 +85,20 @@ class GitHubEvents:
             event_time = event["created_at"]
             repo_id = event["repo"]["id"]
 
-            # swich pres dict na rozdeleni do 
-            self.events.insert({
+            self.events.append({
                 "event_id": event_id,
                 "event_type": event_type,
                 "event_time": event_time,
                 "repo_id": repo_id        
-            })  # mozna list.insert pro novy   
-
+            })
 
 if __name__ == "__main__":
-    GLOBAL_GITHUB = True  # specifies if the whole github should be searched or just part
-    COUNT = 10
     wanted_events = ['IssuesEvent', 'PullRequestEvent', 'WatchEvent']
     mc = GitHubEvents(wanted_events)
-    print(mc._fetch_events())
+    print(mc.url)
+    mc.update_events()
     print(mc.get_event_count())
-    print(mc.get_event_count())
+    print(mc.get_avg_time_pull())
+    print(mc.filter_by_offset(5))
+
+    # chybi stale dodelat pocet itemu a automaticky refresh
