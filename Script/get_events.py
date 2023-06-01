@@ -6,32 +6,34 @@ from datetime import datetime, timedelta
 
 class GitHubEvents:
 
-    def __init__(self, desired_events, **kwargs):
+    def __init__(self, desired_events: list, offset_minutes: int=10, **kwargs):  # upravit kwargs
         self.events = []
         self.count_events = []
-        self.desired_events = desired_events
         self.url = "https://api.github.com/events"
-        self.user_name = kwargs.get("user_name")
-        self.repo_name = kwargs.get("repo_name")
-        if self.user_name and self.repo_name:
-            self.url +=  f"{self.user_name}/{self.repo_name}"
-
-    def update_events(self):
-        update_date = self._fetch_events()
-        self._add_events(update_date)
+        self.desired_events = desired_events
+        self.offset_minutes = offset_minutes
+        
+        # # room for other arguments for repos, users ets
+        # self.user_name = kwargs.get("user_name")
+        # self.repo_name = kwargs.get("repo_name")
+        # if self.user_name and self.repo_name:
+        #     self.url +=  f"{self.user_name}/{self.repo_name}"
 
     def get_event_count(self):
+        self.__update_events()
+        offset_data = self.__filter_by_offset()
         event_count = {}
         for event_type in self.desired_events:
             event_count[event_type] = 0
 
-        for event in self.events:
+        for event in offset_data:
             event_count[event["event_type"]] += 1
 
         return event_count
 
-    def get_avg_time_pull(self):
-        pull_event_list = [event for event in self.events if event["event_type"]=="PullRequestEvent"]
+    def get_avg_time_pull(self, repo_id: int):
+        self.__update_events()
+        pull_event_list = [event for event in self.events if event["event_type"]=="PullRequestEvent" and event["repo_id"] == repo_id]
         if len(pull_event_list) < 2:
             raise ValueError("Less than 2 entries")
         
@@ -44,8 +46,19 @@ class GitHubEvents:
         avg_time_diff = total_time_diff / number_of_diffs
         return avg_time_diff
 
-    def filter_by_offset(self, offset_minutes=10):
-        desired_time = datetime.now() - timedelta(minutes=offset_minutes)
+    def __update_events(self):
+        page = 1
+        
+        while(True):
+            update_date = self.__fetch_events()
+            try:
+                self.__add_events(update_date)
+            except ValueError():
+                break
+            page += 1  # bacha aby se pri updatu neposunuly data z p1 na p2
+
+    def __filter_by_offset(self):
+        desired_time = datetime.now() - timedelta(minutes=self.offset_minutes)
         sorted_events = sorted(self.events, key=lambda x: x["event_time"])
         offset_events = []
         for event in sorted_events:
@@ -56,10 +69,11 @@ class GitHubEvents:
 
         return offset_events
 
-    def _fetch_events(self, number_of_events=100):
+    def __fetch_events(self, page: int=1, events_per_page: int=2):
         payload = {
             "accept": "application/json",
-            "per_page": number_of_events
+            "per_page": events_per_page,
+            "page": page
         }
 
         response = requests.get(self.url, params=payload, timeout=3)
@@ -70,9 +84,9 @@ class GitHubEvents:
             return
         else:
             raise requests.exceptions.HTTPError(f"Unexpected response: {response.status_code}")
-        #sse client here maybe
+        # sse client here maybe
 
-    def _add_events(self, added_data: list):
+    def __add_events(self, added_data: list):
         for event in added_data:
             event_type = event["type"]
             if event_type not in self.desired_events:
@@ -80,7 +94,7 @@ class GitHubEvents:
             
             event_id = event["id"]
             if event_id in self.events:
-                continue
+                raise ValueError("Id already in event list")
 
             event_time = event["created_at"]
             repo_id = event["repo"]["id"]
@@ -96,9 +110,7 @@ if __name__ == "__main__":
     wanted_events = ['IssuesEvent', 'PullRequestEvent', 'WatchEvent']
     mc = GitHubEvents(wanted_events)
     print(mc.url)
-    mc.update_events()
     print(mc.get_event_count())
-    print(mc.get_avg_time_pull())
-    print(mc.filter_by_offset(5))
+    print(mc.get_avg_time_pull("2045"))
 
     # chybi stale dodelat pocet itemu a automaticky refresh
