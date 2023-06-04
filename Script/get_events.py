@@ -1,5 +1,4 @@
 
-# import sseclient
 import requests
 from datetime import datetime, timedelta
 
@@ -9,9 +8,11 @@ class GitHubEvents:
     def __init__(self, desired_events: list, offset_minutes: int=10, **kwargs):  # upravit kwargs
         self.events = []
         self.count_events = []
+        self.cache = []
         self.url = "https://api.github.com/events"
         self.desired_events = desired_events
         self.offset_minutes = offset_minutes
+        
         
         # # room for other arguments for repos, users ets
         # self.user_name = kwargs.get("user_name")
@@ -31,7 +32,7 @@ class GitHubEvents:
 
         return event_count
 
-    def get_avg_time_pull(self, repo_id: int):
+    def get_avg_time_pull(self, repo_id: int=None):
         self.__update_events()
         pull_event_list = [event for event in self.events if event["event_type"]=="PullRequestEvent" and event["repo_id"] == repo_id]
         if len(pull_event_list) < 2:
@@ -84,7 +85,6 @@ class GitHubEvents:
             return
         else:
             raise requests.exceptions.HTTPError(f"Unexpected response: {response.status_code}")
-        # sse client here maybe
 
     def __add_events(self, added_data: list):
         for event in added_data:
