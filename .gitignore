@@ -1,5 +1,6 @@
-/Mole
-Script/__pycache__/
+/Mole/
+.pytest_cache
+/Script_v2/__pycache__/
 __pycache__/
-config.py
+/Script_v2/secret.py
 .env

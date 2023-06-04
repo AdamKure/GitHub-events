@@ -1,94 +1,135 @@
-import requests
 from datetime import datetime, timedelta
+from secret import token
+import requests
 import re
 
-class GitHubFetcher:
-    def __init__(self, cached_ids: dict=None):
-        if cached_ids is None:
-            self.cached_ids = {}
-        else:
-            self.cached_ids = cached_ids
-        # prozatim priprava na cachovani
 
-    def fetch_from_repo(self, owner, repo):
-        url = f"https://api.github.com/repos/{owner}/{repo}/events"
+class GitHubFetcher:
+    """
+    Stores methods for fetching items from GitHub's API.
+    Can fetch event from github limited by time through .fetch_by_offset
+    Can fetch event from github specific repository through .fetch_from_repo
+    
+    Relies on "requests", "datetime" and "re" modules.
+    Current version methods obtain all the data, caching is not implemented.
+    """
+
+    # def __init__(self, cached_events: dict=None):
+    #     if cached_events is None:
+    #         self.cached_events = {}
+    #     else:
+    #         self.cached_events = cached_events
+
+    def fetch_from_repo(self, owner: str=None, repo_name: str=None, repo_id: int=None):
+        """
+        Method used for fetching items from a specific repo.
+        Please make sure you have personal access token in config.py
+
+        Repo can be described by either passing "owner" and "repo_name", or by passing "repo_id",
+        if all are provided, "repo_id" is used
+        (Both arguments are part of repo URL as https://github.com/owner/repo)
+
+        :param owner: Username of repository's owner
+        :param repo_name: Name of the repository
+        :param repo_id: Id of the repo
+        :return: Returns list of dictionaries each containing a single event data
+
+        Examples:
+        --------
+        .fetch_from_repo(repo_id=1234567)
+        or
+        .fetch_from_repo("octokit", "octokit.js")
+        """
+
+        if repo_id:
+            url = f"https://api.github.com/repositories/{repo_id}/events"
+        elif owner and repo_name:
+            url = f"https://api.github.com/repos/{owner}/{repo_name}/events"
+        else:
+            raise ValueError("Either REPO_ID or both OWNER and REPO_NAME have to be passed")
+
         headers = {
-            "accept": "application/json",
-            "per_page": 3,
+            "Authorization": f"Bearer {token}",
+            "accept": "application/json"
         }
-        response = requests.get(url, headers=headers, timeout=3)
-        
-        
-        # uplne to oddelit do paginator metody
+        payload = {"per_page": 100}
+        response = requests.get(url, headers=headers, params=payload, timeout=3)
+
         all_data = []
-        while(True):  # loop to get all the pages, maybe page limit as a condition
-            if response.status_code == 304:
-                break
-            elif response.status_code != 200:
+        while(True):  # loop to get all the pages, page limit through a condition could be implemented as well
+            if response.status_code != 200:
                 raise requests.exceptions.HTTPError(f"Unexpected response: {response.status_code}")
 
             page_data = response.json()
             all_data += page_data
-            # podminka zda posledni ziskane id uz je v eventech a pokud ne tak dalsi stranku
-            if page_data[-1]["id"] in self.cached_ids:
-                break
-            
-            url = self.get_next_page_url(response)
+
+            url = self.__get_next_page_url(response)
             if not url:
                 break
 
-            response = requests.get(url, timeout=3)
-      
+            response = requests.get(url, headers=headers, timeout=3)
+
         return all_data
-  
-    def fetch_by_offset(self, offset):
-        desired_time = datetime.now() - timedelta(minutes=offset)
+
+    def fetch_by_offset(self, offset: int):
+        """
+        Method used for fetching items from the whole GitHUb limited by time offset.
+
+        :param offset: Specifies the offset length in minutes
+        :return: Returns list of dictionaries containing event data (JSON format)
+        """
+
         url = "https://api.github.com/events"
         headers = {
-            "accept": "application/json",
-            "per_page": 3,
+            "Authorization": f"Bearer {token}",
+            "accept": "application/json"
         }
+        payload = {"per_page": 100}
+        response = requests.get(url, headers=headers, params=payload, timeout=3)
 
-        response = requests.get(url, headers=headers, timeout=3)
-        
+        desired_time = datetime.now() - timedelta(minutes=offset)
         all_data = []
-        while(True):  # loop to get all the pages, maybe page limit as a condition
-            if response.status_code == 304:
-                break
-            elif response.status_code != 200:
+        while True:  # loop to get all the pages, maybe page limit as a condition
+            if response.status_code != 200:
                 raise requests.exceptions.HTTPError(f"Unexpected response: {response.status_code}")
 
             page_data = response.json()
             all_data += page_data
 
             last_event_time = datetime.strptime(page_data[-1]["created_at"], "%Y-%m-%dT%H:%M:%SZ")
+            # stop fetching when fetched data are older than desired time
             if last_event_time < desired_time:
                 break
-            
-            url = self.get_next_page_url(response)
+
+            url = self.__get_next_page_url(response)
             if not url:
                 break
 
-            response = requests.get(url, timeout=3)
+            response = requests.get(url, headers=headers, timeout=3)
 
         return all_data
 
-    def get_next_page_url(self, response):
+    def __get_next_page_url(self, response: "requests.Response object"):
+        """
+        Extracts next page url from the response object
+
+        :param response: Response object obtained as a response from request.get()
+        :return: URL (string) for the next page or "None" if the response does not contain it
+        """
+
         link_header = response.headers["link"]
         link_pattern = r'<(.*?)>; rel="next"'
         match = re.search(link_pattern, link_header)
-        
+
         if match:
             url = match.group(1)
             return url
         else:
             return
- 
+
+    # def update_cached_events(self, cached_events: dict):
+    #     self.cached_events = cached_events
 
 if __name__ == "__main__":
-    mc = GitHubFetcher()
-    data = mc.fetch_from_repo("yanyongyu", "githubkit")
-    # print(data)
-    # with open("C:\Users\Adam\Documents\Python Scripts\Datamole\Script_v2\events.json", 'a') as file:
-    #     for event in data:
-    #         file.write(json.dump(event))
+    print("You can check the desired data format at:")
+    print("https://docs.github.com/en/rest/activity/events")

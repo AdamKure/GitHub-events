@@ -1,26 +1,22 @@
-from flask import Flask, request
 import json
+from flask import Flask, request
 
 app = Flask(__name__)
 
-@app.route('/webhook', methods=['POST'])
-def webhook():
-    # Get the payload from the request
-    payload = request.get_json()
+@app.route('/', methods=['GET'])
+def handle_get_request():
+    for header, value in request.headers.items():
+        pass
 
-    # Define the event types you want to listen to
-    event_types = ['IssuesEvent', 'PullRequestEvent', 'WatchEvent']
+    if request.get_data():
+        try:
+            body_params = json.loads(request.get_data())
+            for param, value in body_params.items():
+                print(f"{param}: {value}")
+        except json.JSONDecodeError:
+            print("Invalid JSON in the request body")
 
-    # Filter the events based on the desired event types
-    filtered_events = [event for event in payload if event['type'] in event_types]
+    return "Success"
 
-    # Save the filtered events to a local JSON file
-    file_path = "/events.json"
-    with open(file_path, 'a') as file:
-        for event in filtered_events:
-            file.write(json.dumps(event) + '\n')
-
-    return 'Webhook received'
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run()
