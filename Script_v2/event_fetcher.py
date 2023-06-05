@@ -1,7 +1,10 @@
-from datetime import datetime, timedelta
-from secret import token
-import requests
+""" This module contains GitHubFetcher object containing methods for fetching data from github """
+
+import json
 import re
+import requests
+from datetime import datetime, timedelta
+from secret import TOKEN
 
 
 class GitHubFetcher:
@@ -49,14 +52,15 @@ class GitHubFetcher:
             raise ValueError("Either REPO_ID or both OWNER and REPO_NAME have to be passed")
 
         headers = {
-            "Authorization": f"Bearer {token}",
+            "Authorization": f"Bearer {TOKEN}",
             "accept": "application/json"
         }
         payload = {"per_page": 100}
         response = requests.get(url, headers=headers, params=payload, timeout=3)
 
+        # loop to get all the pages, page limit through a condition could be implemented as well
         all_data = []
-        while(True):  # loop to get all the pages, page limit through a condition could be implemented as well
+        while True:
             if response.status_code != 200:
                 raise requests.exceptions.HTTPError(f"Unexpected response: {response.status_code}")
 
@@ -81,15 +85,15 @@ class GitHubFetcher:
 
         url = "https://api.github.com/events"
         headers = {
-            "Authorization": f"Bearer {token}",
+            "Authorization": f"Bearer {TOKEN}",
             "accept": "application/json"
         }
         payload = {"per_page": 100}
         response = requests.get(url, headers=headers, params=payload, timeout=3)
 
-        desired_time = datetime.now() - timedelta(minutes=offset)
+        desired_time = datetime.utcnow() - timedelta(minutes=offset)
         all_data = []
-        while True:  # loop to get all the pages, maybe page limit as a condition
+        while True:  # loop to get all the pages, page limit through a condition could be implemented as well
             if response.status_code != 200:
                 raise requests.exceptions.HTTPError(f"Unexpected response: {response.status_code}")
 
@@ -130,6 +134,24 @@ class GitHubFetcher:
     # def update_cached_events(self, cached_events: dict):
     #     self.cached_events = cached_events
 
+
 if __name__ == "__main__":
-    print("You can check the desired data format at:")
-    print("https://docs.github.com/en/rest/activity/events")
+    # fetches data and saves it as json flles
+    mc = GitHubFetcher()
+    data_1 = mc.fetch_by_offset(6)
+    data_2 = mc.fetch_from_repo("yanyongyu", "githubkit")
+
+    with open('offset.json', 'w') as file:
+        json.dump(data_1, file)
+
+    with open('repo.json', 'w') as file:
+        json.dump(data_2, file)
+
+    # display number of fetched items
+    print(f"offset fetched {len(data_1)} items")
+    print(f"repo fetched {len(data_2)} items")
+
+    print("""
+    "You can check the desired data format at:"
+    "https://docs.github.com/en/rest/activity/events"
+    """)

@@ -1,7 +1,9 @@
-from events_fetcher import GitHubFetcher
+""" Module contains EventHandler that is able to store and manipulate with the event data"""
 from datetime import datetime, timedelta
+from event_fetcher import GitHubFetcher
 
-class EventHolder:
+
+class EventHandler:
     """
     Stores events data and is able to perfom certain analytical operations on it.
     
@@ -25,7 +27,6 @@ class EventHolder:
         """
         # hardset event types I want
         desired_types = ['PullRequestEvent']
-
         fetched_data = self.fetcher.fetch_from_repo(owner, repo_name, repo_id)
         filtered_data = self.filter_event_types(fetched_data, desired_types)
 
@@ -35,8 +36,8 @@ class EventHolder:
         sorted_data = sorted(filtered_data, key=lambda x: x["created_at"], reverse=True)
 
         # instead of averaging all the diffs I can use total time diffs and number of diffs
-        last_event_time = datetime.strptime(sorted_data[0]["event_time"], "%Y-%m-%dT%H:%M:%SZ")
-        first_entry_time = datetime.strptime(sorted_data[-1]["event_time"], "%Y-%m-%dT%H:%M:%SZ")
+        last_event_time = datetime.strptime(sorted_data[0]["created_at"], "%Y-%m-%dT%H:%M:%SZ")
+        first_entry_time = datetime.strptime(sorted_data[-1]["created_at"], "%Y-%m-%dT%H:%M:%SZ")
         total_time_diff = last_event_time - first_entry_time
         number_of_diffs = len(sorted_data) - 1
         avg_time_diff = total_time_diff / number_of_diffs
@@ -46,12 +47,15 @@ class EventHolder:
         """
         Calculates number of each specified event type created in last n minutes
 
-        :param offset: Specifies the number of minutes
+        :param offset: Specifies the number of minutes (has to be >5)
 
         :return: Dict of event types (keys) and number of events (values)
         """
+        if offset <= 5:
+            raise ValueError("Offset has to be greater than 5")  # GitHub has delay on global events 5 mins
+
         desired_types = ['IssuesEvent', 'PullRequestEvent', 'WatchEvent']
-        desired_time = datetime.now() - timedelta(minutes=offset)
+        desired_time = datetime.utcnow() - timedelta(minutes=offset)
 
         fetched_data = self.fetcher.fetch_by_offset(offset)
         filtered_types = self.filter_event_types(fetched_data, desired_types)
@@ -85,16 +89,17 @@ class EventHolder:
         :return: List of events younger than desired_time
         """
 
-        filtered_events = [event for event in unfiltered_events if self.get_event_time(event) >= desired_time]
+        filtered_events = [event for event in unfiltered_events if self._get_event_time(event) >= desired_time]
         return filtered_events
 
-    def get_event_time(self, event: dict):
+    def _get_event_time(self, event: dict):
         """
         Returns GitHub event creation time as datetime object
         in format YYYY-MM-DD HH:MM:SS.Z
         """
         return datetime.strptime(event["created_at"], "%Y-%m-%dT%H:%M:%SZ")
 
+    # preparation for caching
     # def is_cached_event(self, event_id: str):
     #     if event_id in self.cached_events:
     #         return True
@@ -108,13 +113,17 @@ class EventHolder:
     #         return False
 
 
-
-# Example:
-# cached_events = {"idstring": "subdictionary"}
-# cached_repos = {("owner", "repo_name"): "repoid"}
-# pull_evemt = ['PullRequestEvent']
-# wanted_events = ['IssuesEvent', 'PullRequestEvent', 'WatchEvent']
-# example_type = {"id": {"dict_with_other_info": ""}}
-
 if __name__=="__main__":
-    print()
+    mc = EventHandler()
+    data_1 = mc.get_events_count_offset(6)
+    data_2 = mc.get_repo_pull_time("yanyongyu", "githubkit")
+
+    print(datetime.utcnow() - timedelta(minutes=5))
+
+    print(f"Output of offset event count: {data_1}")
+    print(f"Output of repo pull time: {data_2}")
+
+    print("""
+    "You can check the format of stored data at:"
+    "https://docs.github.com/en/rest/activity/events" 
+    """)

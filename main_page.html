@@ -1,0 +1,41 @@
+<html>
+<head>
+    <title>Simple HTTP Server</title>
+</head>
+<body>
+    <h1>Hello</h1>
+    <p>This is a simple HTTP server.</p>
+
+    <p>You can find documentation (in the future) at: <a href="https://docs.adress.domain">https://docs.adress.domain</a></p>
+
+    <p>Limited functionality includes:</p>
+    <ul>
+        <li>Getting the average time between pull requests for a specific GitHub repository:</li>
+        <ul>
+            <li>Endpoint: <code>/api/pull-time</code></li>
+            <li>Method: GET</li>
+            <li>Required parameters:</li>
+            <ul>
+                <li>Either both:</li>
+                <ul>
+                    <li><code>owner</code> (string): repository owner's username</li>
+                    <li><code>repo_name</code> (string): repository name</li>
+                </ul>
+                <li>or:</li>
+                <ul>
+                    <li><code>repo_id</code> (integer): repository identifier</li>
+                </ul>
+            </ul>
+        </ul>
+        <li>Getting the amount of IssuesEvents, PullRequestEvents, and WatchEvents in the last n minutes:</li>
+        <ul>
+            <li>Endpoint: <code>/api/global-event-stats</code></li>
+            <li>Method: GET</li>
+            <li>Required parameter:</li>
+            <ul>
+                <li><code>offset</code>(integer): number of minutes (has to be >5)</li>
+            </ul>
+        </ul>
+    </ul>
+</body>
+</html>
