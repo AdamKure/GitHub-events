@@ -1,9 +1,8 @@
 """ Contains basic HTTP server with basic API settings for getting GitHub events stats """
 import flask
-from event_handler import EventHandler
+from Script_v2.event_handler import EventHandler
+from io import BytesIO
 
-HOST = "localhost"
-PORT = 5000
 
 app = flask.Flask(__name__)
 handler = EventHandler()
@@ -38,7 +37,7 @@ def handle_pull_time():
         try:
             time_data = handler.get_repo_pull_time(owner, repo_name, repo_id)
         except Exception:  # if enough time should implement each exception differently
-            return flask.make_response("Not Found", 404)
+            return flask.make_response("Internal Server Error", 500)
         else:
             response = {"avg_duration": str(time_data)}
             return flask.jsonify(response)
@@ -56,12 +55,14 @@ def handle_global_event_stats():
             return flask.make_response("Bad Request", 400)
         else:
             offset = int(offset)
-            print(offset)
+
+        if offset <= 5:
+            return flask.make_response("Bad Request", 400)
 
         try:
             data = handler.get_events_count_offset(offset)
         except Exception:  # if enough time should implement each exception differently
-            return flask.make_response("Not Found", 404)
+            return flask.make_response("Internal Server Error", 500)
         else:
             return flask.jsonify(data)
 
@@ -69,24 +70,32 @@ def handle_global_event_stats():
 def handle_visualize():
     """ Settings for handling API request to visualizations """
 
-    pass
-    # if flask.request.method == 'GET':
-    #     payload = flask.request.args.to_dict()
+    if flask.request.method == 'GET':
+        payload = flask.request.args.to_dict()
 
-    #     offset = payload.get('offset')
-    #     if not offset:
-    #         return flask.make_response("Bad Request", 400)
-    #     else:
-    #         offset = int(offset)
-    #         print(offset)
+        # other params for other methods can be added later
+        update = payload.get("update", False)
+        type_ratio = payload.get("type_ratio", False)
 
-    #     try:
-    #         data = handler.get_events_count_offset(offset)
-    #     except Exception:  # if enough time should implement each exception differently
-    #         return flask.make_response("Not Found", 404)
-    #     else:
-    #         return flask.jsonify(data)
+        if not type_ratio:
+            return flask.make_response("Bad Request", 400)
+
+        # in future separate method to update data can be implemented, now i use offset
+        if update:
+            try:
+                handler.get_events_count_offset(6)
+            except Exception:  # if enough time should implement each exception differently
+                return flask.make_response("Internal Server Error", 500)
+
+        try:
+            handler.visualize_event_type_ratio()
+        except Exception:  # if enough time should implement each exception differently
+            return flask.make_response("Internal Server Error", 500)
+        else:
+            with open("chart.png", 'rb') as file:
+                img = file.read()
+            return flask.send_file(BytesIO(img), mimetype='image/png', as_attachment=True, download_name="chart.png")
 
 
 if __name__ == "__main__":
-    app.run(host=HOST, port=PORT, debug=True)
+    app.run(debug=True)

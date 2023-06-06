@@ -33,7 +33,17 @@
             <li>Method: GET</li>
             <li>Required parameter:</li>
             <ul>
-                <li><code>offset</code>(integer): number of minutes (has to be >5)</li>
+                <li><code>offset</code> (integer): number of minutes (has to be >5)</li>
+            </ul>
+        </ul>
+        <li>Getting donut shape chart of event ratios plus source data as json:</li>
+        <ul>
+            <li>Endpoint: <code>/api/visualize</code></li>
+            <li>Method: GET</li>
+            <li>Required parameter:</li>
+            <ul>
+                <li><code>update</code> (bool): use cached data only (False) or fetch new data (True)</li>
+                <li><code>type_ratio</code> (bool): send (True) or do not send (False)</li>
             </ul>
         </ul>
     </ul>

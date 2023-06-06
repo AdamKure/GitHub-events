@@ -2,8 +2,8 @@
 .pytest_cache
 /Script_v2/__pycache__/
 __pycache__/
-/Script_v2/secret.py
 .env
+chart.png
 offset.json
 repo.json
 zzz.py

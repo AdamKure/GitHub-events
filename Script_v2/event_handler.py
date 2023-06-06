@@ -1,7 +1,7 @@
 """ Module contains EventHandler that is able to store and manipulate with the event data"""
 from datetime import datetime, timedelta
-from event_fetcher import GitHubFetcher
-
+from Script_v2.event_fetcher import GitHubFetcher
+import matplotlib.pyplot as plt
 
 class EventHandler:
     """
@@ -9,11 +9,10 @@ class EventHandler:
     
     Calls GitHubFetcher when it needs to fetch data from GitHub.
 
-    No caching functionality yet.
+    Cashing is only working for visualizing
     """
     def __init__(self):
-        # self.cached_events = {}
-        # self.cached_repos = {}
+        self.cached_events = {}
         self.fetcher = GitHubFetcher()
 
     def get_repo_pull_time(self, owner: str=None, repo_name: str=None, repo_id: int=None):
@@ -28,6 +27,10 @@ class EventHandler:
         # hardset event types I want
         desired_types = ['PullRequestEvent']
         fetched_data = self.fetcher.fetch_from_repo(owner, repo_name, repo_id)
+        # for now it caches the data only for visualization
+        for event in fetched_data:
+            if event["id"] not in self.cached_events:
+                self.cached_events[event["id"]] = event
         filtered_data = self.filter_event_types(fetched_data, desired_types)
 
         if len(filtered_data) < 2:
@@ -58,6 +61,10 @@ class EventHandler:
         desired_time = datetime.utcnow() - timedelta(minutes=offset)
 
         fetched_data = self.fetcher.fetch_by_offset(offset)
+        # for now it stores the events data for vosializing
+        for event in fetched_data:
+            if event["id"] not in self.cached_events:
+                self.cached_events[event["id"]] = event
         filtered_types = self.filter_event_types(fetched_data, desired_types)
         filtered_data = self.filter_offset(filtered_types, desired_time)
 
@@ -65,7 +72,6 @@ class EventHandler:
         for event in filtered_data:
             event_count[event["type"]] += 1
         return event_count
-
 
     def filter_event_types(self, unfiltered_events: list, desired_types: list):
         """
@@ -92,6 +98,39 @@ class EventHandler:
         filtered_events = [event for event in unfiltered_events if self._get_event_time(event) >= desired_time]
         return filtered_events
 
+    def visualize_event_type_ratio(self):
+        """ Creates a donut chart and daves it locally as chart.png """
+        # retrieving the data
+        event_type_count = {}
+        for event in self.cached_events.values():
+            if event["type"] in event_type_count:
+                event_type_count[event["type"]] += 1
+
+            else:
+                event_type_count[event["type"]] = 1
+
+        if not event_type_count:
+            raise ValueError("No cached event found")
+
+        # creating a donut chart
+        unsorted_data = event_type_count.items()
+        sorted_date = sorted(unsorted_data, key=lambda x: x[1], reverse=True)
+        labels = [tup[0] for tup in sorted_date]
+        type_counts = [tup[1] for tup in sorted_date]
+
+        # creates piechart first
+        fig, ax = plt.subplots(figsize=(15, 15), dpi=200)
+        ax.pie(type_counts, labels=labels, autopct='%1.1f%%', startangle=30)
+        ax.axis('equal')
+        ax.set_title("Event Type Distribution", y=0.5)
+
+        # from piechart makes donutchart
+        center_circle = plt.Circle((0, 0), 0.75, fc='white')
+        fig.gca().add_artist(center_circle)
+
+        plt.savefig("chart.png", format="png")
+        plt.close()
+
     def _get_event_time(self, event: dict):
         """
         Returns GitHub event creation time as datetime object
@@ -99,15 +138,14 @@ class EventHandler:
         """
         return datetime.strptime(event["created_at"], "%Y-%m-%dT%H:%M:%SZ")
 
-    # preparation for caching
-    # def is_cached_event(self, event_id: str):
-    #     if event_id in self.cached_events:
-    #         return True
-    #     else:
-    #         return False
+    # # preparation for caching
+    # def _is_cached(self, event_id: str):
+    #     """Checks if event is cached
 
-    # def is_cached_repo(self, owner: str= None, repo_name: str=None, repo_id: int=None):
-    #     if (owner, repo_name) in self.cached_repos.keys() or repo_id in self.cached_repos.values():
+    #     :param event_id: Id of the event
+    #     :return: True if cached, False otherwise
+    #     """
+    #     if event_id in self.cached:
     #         return True
     #     else:
     #         return False
@@ -122,6 +160,7 @@ if __name__=="__main__":
 
     print(f"Output of offset event count: {data_1}")
     print(f"Output of repo pull time: {data_2}")
+    mc.visualize_event_type_ratio()
 
     print("""
     "You can check the format of stored data at:"
