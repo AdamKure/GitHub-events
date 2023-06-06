@@ -1,6 +1,6 @@
 """ Contains basic HTTP server with basic API settings for getting GitHub events stats """
 import flask
-from Script_v2.event_handler import EventHandler
+from GHEvents.event_handler import EventHandler
 from io import BytesIO
 
 
@@ -80,7 +80,7 @@ def handle_visualize():
         if not type_ratio:
             return flask.make_response("Bad Request", 400)
 
-        # in future separate method to update data can be implemented, now i use offset
+        # in future separate method to update data can be implemented, now i use get_events_count_offset
         if update:
             try:
                 handler.get_events_count_offset(6)

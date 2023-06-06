@@ -1,7 +1,8 @@
-""" Module contains EventHandler that is able to store and manipulate with the event data"""
-from datetime import datetime, timedelta
-from Script_v2.event_fetcher import GitHubFetcher
+""" Module contains EventHandler that is able to store and manipulate with the event data """
 import matplotlib.pyplot as plt
+from datetime import datetime, timedelta
+from GHEvents.event_fetcher import GitHubFetcher
+
 
 class EventHandler:
     """

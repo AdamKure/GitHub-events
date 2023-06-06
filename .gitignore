@@ -1,9 +1,9 @@
-/Mole/
-.pytest_cache
-/Script_v2/__pycache__/
 __pycache__/
-.env
+.pytest_cache
+/Mole/
+/GHEvents/__pycache__/
 chart.png
+do_not_share.py
 offset.json
 repo.json
 zzz.py

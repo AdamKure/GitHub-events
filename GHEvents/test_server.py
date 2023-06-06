@@ -1,3 +1,4 @@
+""" This does not serve for Pytesting purposes """
 import requests
 
 
@@ -15,7 +16,17 @@ def test_offset():
     if response2.status_code == 200:
         print(response2.json())
 
+def test_visualize():
+    url = 'http://localhost:5000/api/visualize'
+    params = {
+        "update": True,
+        'type_ratio': True
+    }
+    response = requests.get(url, params=params, timeout=5)
+    print('Response Status Code:', response.status_code)
+
 
 if __name__ == "__main__":
     test_repo_pull()
-    # test_offset()
+    test_offset()
+    test_visualize()
